@@ -11,74 +11,76 @@
 #include <math.h>
 #include <vector>
 #include<stdbool.h>
-
-
+#include <Windows.h>
+using namespace std;
 GLvoid drawScene(GLvoid);
-GLvoid Reshape(int w, int h);
-void make_vertexShaders(); //버텍스 세이더 만들기
-void make_fragmentShaders(); //프래그먼트 세이더 만들기
-void make_shaderProgram(); //세이더 프로그램 생성
+void make_vertexShaders(); 
+void make_fragmentShaders(); 
+void make_shaderProgram(); 
 void InitBuffer();
 char* filetobuf(const char* file);
-GLint height, width; //윈도우창 크기 
-GLuint shaderProgram; //세이더 프로그램 이름
-GLuint vertexShader;//버텍스 세이더 객체
-GLuint fragmentShader;//프래그먼트 세이더 객체
+GLint height, width; 
+GLuint shaderProgram; 
+GLuint vertexShader;
+GLuint fragmentShader;
 GLuint VAO, VBO_pos, VBO_normal, VBO_color;
-GLuint VAO_axis, VBO_axis;
+GLuint VAO_blank, VBO_blank;
 bool loadOBJ(const char* path);
-
+GLvoid keyboard(unsigned char key, int x, int y);
 
 
 std::vector< glm::vec3 > out_vertices;
 std::vector< glm::vec2 > out_uvs;
-std::vector< glm::vec3 > out_normals; // Won't be used at the moment.
-bool res = loadOBJ("cube.obj");
+std::vector< glm::vec3 > out_normals;
+bool res = loadOBJ("tree1..obj");
+//bool res = loadOBJ("cube.obj");
 GLint object = out_vertices.size();
 
+typedef struct Hint
+{
+	int num = 3; //힌트 몇번 썼는지
+	bool hint_ = true;
+	bool blank = true;
+	void hintsys() {
+		if (hint_)
+		{
+			cout << "3" << endl;
+			Sleep(1000);
+			cout << "2" << endl;
+			Sleep(1000);
+			cout << "1" << endl;
+		}
+	}
+};
+Hint hint;
 
-
-float axis[] = {
-	0.0,0.0,0.0,
-	2.0,0.0,0.0,
-	-2.0,0.0,0.0,
-	0.0,0.0,0.0,
-	0.0,2.0,0.0,
-	0.0,-2.0,0.0,
-	0.0,0.0,0.0,
-	0.0,0.0,2.0,
-	0.0,0.0,-2.0
-
+float blank[] = {
+	2.0,-2.0,0.0,
+	-2.0,-2.0,0.0,
+	2.0,2.0,0.0,
+	2.0,2.0,0.0,
+	-2.0,2.0,0.0,
+	-2.0,-2.0,0.0
+	
 };
 
 void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
 { //--- 윈도우 생성하기
-	height = 500;
-	width = 500;
+	height =600;
+	width = 1300;
 	glutInit(&argc, argv); // glut 초기화
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH); // 디스플레이 모드 설정
 	glutInitWindowPosition(100, 100); // 윈도우의 위치 지정
 	glutInitWindowSize(width, height); // 윈도우의 크기 지정
 	glutCreateWindow("cube");
-
-
 	glewExperimental = GL_TRUE;
 	glewInit();
-
-
 	make_vertexShaders(); //--- 버텍스 세이더 만들기
 	make_fragmentShaders(); //--- 프래그먼트 세이더 만들기
 	make_shaderProgram(); //--- 세이더 프로그램 만들기
-
-
 	InitBuffer();
-
-
-
+	glutKeyboardFunc(keyboard);
 	glutDisplayFunc(drawScene); // 출력 함수의 지정
-	glutReshapeFunc(Reshape); // 다시 그리기 함수 지정
-
-
 	glutMainLoop(); // 이벤트 처리 시작 
 
 
@@ -89,7 +91,7 @@ void main(int argc, char** argv) //--- 윈도우 출력하고 콜백함수 설정
 
 GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
 {
-	glClearColor(0.0,1.0f, 1.0f, 1.0f);
+	glClearColor(1.0,1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -97,19 +99,12 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
 
 	glEnable(GL_DEPTH_TEST);
 
-
-
-
-
-	//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
 		//모델변환
 	glm::mat4 Sz = glm::mat4(1.0);
 	Sz = glm::scale(Sz, glm::vec3(0.5, 0.5, 0.5));
 	int modeltrans = glGetUniformLocation(shaderProgram, "Smatrix");
 	glUniformMatrix4fv(modeltrans, 1, GL_FALSE, glm::value_ptr(Sz));
-
+	
 
 	//뷰 변환
 	glm::vec3 cameraPos = glm::vec3(-0.8f, 1.0f, 1.0f); //--- 카메라 위치
@@ -134,50 +129,62 @@ GLvoid drawScene() //--- 콜백 함수: 그리기 콜백 함수
 
 
 
+		int objColorLocation = glGetUniformLocation(shaderProgram, "objectColor"); //--- object Color값 전달: (1.0, 0.5, 0.3)의 색
+		glUniform3f(objColorLocation, 1.0, 1.0, 1.0);
+
+		unsigned int lightPosLocation = glGetUniformLocation(shaderProgram, "lightPos"); //--- lightPos 값 전달: (0.0, 0.0, 5.0);
+		glUniform3f(lightPosLocation,0.0,0.0,1.0);
+		int lightColorLocation = glGetUniformLocation(shaderProgram, "lightColor"); //--- lightColor 값 전달: (1.0, 1.0, 1.0) 백색
+		glUniform3f(lightColorLocation,1.0,1.0,1.0);
+
+		glUniform3f(objColorLocation, 1.0, 1.0, 1.0);
+		unsigned int viewPosLocation = glGetUniformLocation(shaderProgram, "viewPos"); //--- viewPos 값 전달: 카메라 위치
+		glUniform3f(viewPosLocation, 0.0, 0.0, 0.0);
+
+    int vColorLocation = glGetUniformLocation(shaderProgram, "outColor");
 
 
+     glViewport(-200, 0, width , height);
+     glUniform4f(vColorLocation, 0.0f, 0.0f, 0.0f, 1.0f);
+     glUseProgram(shaderProgram);
+     glBindVertexArray(VAO);
+     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+     glDrawArrays(GL_TRIANGLES, 0, object);
+     //메인(플레이)화면
 
-
-
-
-
-
-	//큐브
-	int vColorLocation = glGetUniformLocation(shaderProgram, "outColor");
-	glUniform4f(vColorLocation, 1.0f, 1.0f, 1.0f, 1.0f);
-
-	glUseProgram(shaderProgram);
-	glBindVertexArray(VAO);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glDrawArrays(GL_TRIANGLES, 0, object);
-
-	//좌표축
-	/*int aColorLocation = glGetUniformLocation(shaderProgram, "outColor");
-	glUniform4f(aColorLocation, 0.0f, 1.0f, 0.0f, 1.0f);
-
-
-	glBindVertexArray(VAO_axis);
-	glDrawArrays(GL_LINES, 0, 9);*/
-
-
-
-
-	glutSwapBuffers(); // 화면에 출력하기
-
+	
+	
+     glViewport(width - 300, height -500, 200, 200);
+     glUniform4f(vColorLocation, 0.0f, 0.0f, 0.0f, 1.0f);
+     glUseProgram(shaderProgram);
+     glBindVertexArray(VAO);
+     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+     glDrawArrays(GL_TRIANGLES, 0, object);
+	
+     //현재 진행상황 화면
+	 glm::vec3 cameraPosh = glm::vec3(-0.8f, 1.0f, 1.0f); //--- 카메라 위치
+	 glm::vec3 cameraDirectionh = glm::vec3(0.0f, 0.0f, 0.0f); //--- 카메라 바라보는 방향
+	 glm::vec3 cameraUph = glm::vec3(0.0f, -1.0f, 0.0f); //--- 카메라 위쪽 방향
+	 glm::mat4 viewh = glm::mat4(1.0f);
+	 viewh = glm::lookAt(cameraPosh, cameraDirectionh, cameraUph);
+      if (hint.hint_) {
+		 glViewport(width - 300, height - 200, 200, 200);
+		 glUniform4f(vColorLocation, 0.0f, 0.0f, 0.0f, 1.0f);
+		 glUseProgram(shaderProgram);
+		 glBindVertexArray(VAO);
+		 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		 glDrawArrays(GL_TRIANGLES, 0, object);
+		 glBindVertexArray(VAO_blank);
+		 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		 glDrawArrays(GL_TRIANGLES, 0, object);
+		 //예시(힌트)화면
+	 }
+	 hint.hint_ = false;
+     glutSwapBuffers(); // 화면에 출력하기
+     
 
 }
 
-
-
-
-
-
-
-GLvoid Reshape(int w, int h) //--- 콜백 함수: 다시 그리기 콜백 함수 
-{
-
-	glViewport(0, 0, w, h);
-}
 
 
 
@@ -187,14 +194,14 @@ GLvoid InitBuffer() {
 
 	//좌표축
 
-	glGenVertexArrays(1, &VAO_axis);
-	glGenBuffers(1, &VBO_axis);
+	glGenVertexArrays(1, &VAO_blank);
+	glGenBuffers(1, &VBO_blank);
 
 
 	glUseProgram(shaderProgram);
-	glBindVertexArray(VAO_axis);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_axis);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(axis), axis, GL_STATIC_DRAW);
+	glBindVertexArray(VAO_blank);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_blank);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(blank),blank, GL_STATIC_DRAW);
 	GLint aAttribute = glGetAttribLocation(shaderProgram, "aPos");
 	glVertexAttribPointer(aAttribute, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
 	glEnableVertexAttribArray(aAttribute);
@@ -223,14 +230,6 @@ GLvoid InitBuffer() {
 	GLint nAttribute = glGetAttribLocation(shaderProgram, "aNormal");
 	glVertexAttribPointer(nAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
 	glEnableVertexAttribArray(nAttribute);
-
-
-	/*glBindBuffer(GL_ARRAY_BUFFER, VBO_color);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_color_buffer_data), g_color_buffer_data, GL_STATIC_DRAW);
-	GLint cAttribute = glGetAttribLocation(shaderProgram, "aColor");
-	glVertexAttribPointer(cAttribute, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-	glEnableVertexAttribArray(cAttribute);*/
-
 
 }
 
@@ -409,10 +408,6 @@ bool loadOBJ(const char* path) {
 		scaleY = maxY - minY;
 		scaleZ = maxZ - minZ;
 	}
-	//std::cout << "aveX: " << aveX << " aveY: " << aveY << " aveZ: " << aveZ << std::endl;
-
-	//std::cout << "scaleX: " << scaleX << " scaleY: " << scaleY << " scaleZ: " << scaleZ << std::endl;
-
 	for (unsigned int i = 0; i < vertexIndices.size(); i++) {
 		glm::vec3 temp;
 		unsigned int vertexIndex = vertexIndices[i];
@@ -451,17 +446,6 @@ bool loadOBJ(const char* path) {
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
 //파일 읽기-----------------------
 char* filetobuf(const char* file)
 {
@@ -482,3 +466,15 @@ char* filetobuf(const char* file)
 	return buf; // Return the buffer 
 }
 
+GLvoid keyboard(unsigned char key, int x, int y)
+{
+	switch (key) {
+	//힌트 
+	case 'h':
+		hint.hint_ = true;
+		hint.hintsys();
+		break;
+
+	}
+	glutPostRedisplay();
+}
